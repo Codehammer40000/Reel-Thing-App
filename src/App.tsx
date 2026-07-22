@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { LinkPartnerScreen } from './components/LinkPartnerScreen'
+import { ChangePartnerModal } from './components/ChangePartnerModal'
 import { MatchesScreen } from './components/MatchesScreen'
 import { MatchSplash } from './components/MatchSplash'
 import { SwipeDeck } from './components/SwipeDeck'
@@ -55,6 +56,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [deckOrder, setDeckOrder] = useState<string[]>([])
   const [shaking, setShaking] = useState(false)
+  const [showChangePartner, setShowChangePartner] = useState(false)
 
   const titlesById = useMemo(() => new Map(titles.map((t) => [t.id, t])), [titles])
   const unreadCount = unreadMatchIds.size
@@ -261,6 +263,25 @@ export default function App() {
     setScreen('deck')
   }
 
+  const handlePartnerChanged = (partner: string, id: string) => {
+    if (displayName && coupleId && coupleId !== id) {
+      clearUnreadMatchIds(displayName, coupleId)
+    }
+    setPartnerName(partner)
+    setCoupleId(id)
+    setMatches([])
+    setSwipedIds(new Set())
+    setKnownMatchIds(new Set())
+    setUnreadMatchIds(new Set())
+    matchesHydrated.current = false
+    if (displayName) {
+      saveSession({ displayName, partnerName: partner, coupleId: id })
+      setUnreadMatchIds(loadUnreadMatchIds(displayName, id))
+    }
+    setShowChangePartner(false)
+    setScreen('deck')
+  }
+
   const handleDecision = async (decision: SwipeDecision) => {
     if (!current) return
     const title = current
@@ -348,8 +369,16 @@ export default function App() {
       ) : null}
 
       {partnerName && screen !== 'welcome' ? (
-        <p className="deck-status" style={{ marginTop: 0 }}>
-          Synced with <span className="partner-pill">{partnerName}</span>
+        <p className="deck-status sync-line">
+          Synced with{' '}
+          <button
+            type="button"
+            className="partner-pill partner-pill-btn"
+            onClick={() => setShowChangePartner(true)}
+            title="Change partner"
+          >
+            {partnerName}
+          </button>
         </p>
       ) : null}
 
@@ -427,13 +456,22 @@ export default function App() {
         />
       ) : null}
 
+      {showChangePartner && displayName && partnerName ? (
+        <ChangePartnerModal
+          myName={displayName}
+          currentPartner={partnerName}
+          onChanged={handlePartnerChanged}
+          onClose={() => setShowChangePartner(false)}
+        />
+      ) : null}
+
       {displayName && screen !== 'welcome' ? (
         <button
           type="button"
           className="ghost-btn account-switch"
           onClick={resetLocal}
         >
-          Switch account
+          Log out
         </button>
       ) : null}
     </div>

@@ -169,12 +169,16 @@ a {
 /* Welcome */
 .welcome {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 24px 0 40px;
-  gap: 28px;
+  align-items: stretch;
+  padding: 16px 0 20px;
+  gap: 20px;
   position: relative;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .welcome::before {
@@ -833,7 +837,50 @@ a {
   font-weight: 600;
 }
 
+.partner-pill-btn {
+  cursor: pointer;
+  font: inherit;
+  vertical-align: middle;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.partner-pill-btn:hover {
+  background: rgba(232, 168, 56, 0.22);
+  border-color: rgba(232, 168, 56, 0.55);
+}
+
+.sync-line {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.change-partner-card {
+  text-align: left;
+}
+
+.change-partner-card .splash-kicker {
+  text-align: center;
+}
+
+.change-partner-card p {
+  text-align: center;
+}
+
+.change-partner-card .ghost-btn {
+  width: 100%;
+}
+
 @media (max-width: 480px) {
+  .hero-brand {
+    font-size: clamp(2.8rem, 14vw, 4rem);
+  }
+
+  .welcome {
+    gap: 16px;
+    padding: 12px 0 16px;
+    justify-content: center;
+  }
+
   .brand-mark {
     font-size: 1.35rem;
   }
