@@ -8,8 +8,10 @@ import { isFirebaseConfigured } from './lib/firebase'
 import {
   clearSession,
   clearUnreadMatchIds,
+  loadDeckOrder,
   loadSession,
   loadUnreadMatchIds,
+  saveDeckOrder,
   saveSession,
   saveUnreadMatchIds,
 } from './lib/session'
@@ -22,6 +24,7 @@ import {
   watchMatches,
   watchUser,
 } from './lib/sync'
+import { orderTitlesByIds, shakeRemainingOrder, syncDeckOrder } from './lib/shuffle'
 import { FILTER_OPTIONS, filterTitles } from './lib/titles'
 import type {
   AppScreen,
@@ -50,9 +53,21 @@ export default function App() {
   const selfMatchedIds = useRef(new Set<string>())
   const [busySwipe, setBusySwipe] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deckOrder, setDeckOrder] = useState<string[]>([])
+  const [shaking, setShaking] = useState(false)
 
   const titlesById = useMemo(() => new Map(titles.map((t) => [t.id, t])), [titles])
   const unreadCount = unreadMatchIds.size
+
+  useEffect(() => {
+    if (!displayName || titles.length === 0) return
+    const synced = syncDeckOrder(
+      loadDeckOrder(displayName),
+      titles.map((t) => t.id),
+    )
+    setDeckOrder(synced)
+    saveDeckOrder(displayName, synced)
+  }, [displayName, titles])
 
   useEffect(() => {
     let cancelled = false
@@ -188,11 +203,25 @@ export default function App() {
   }, [coupleId, displayName])
 
   const deck = useMemo(() => {
-    return filterTitles(titles, filter).filter((t) => !swipedIds.has(t.id))
-  }, [titles, filter, swipedIds])
+    const filtered = filterTitles(titles, filter).filter((t) => !swipedIds.has(t.id))
+    return orderTitlesByIds(filtered, deckOrder)
+  }, [titles, filter, swipedIds, deckOrder])
 
   const current = deck[0]
   const next = deck[1]
+
+  const handleShake = () => {
+    if (shaking || !displayName || deck.length < 2) return
+    setShaking(true)
+    window.setTimeout(() => {
+      setDeckOrder((prev) => {
+        const nextOrder = shakeRemainingOrder(prev, swipedIds)
+        saveDeckOrder(displayName, nextOrder)
+        return nextOrder
+      })
+      setShaking(false)
+    }, 520)
+  }
 
   const openMatches = () => {
     setScreen('matches')
@@ -273,6 +302,7 @@ export default function App() {
     setSwipedIds(new Set())
     setKnownMatchIds(new Set())
     setUnreadMatchIds(new Set())
+    setDeckOrder([])
     selfMatchedIds.current = new Set()
     setScreen('welcome')
     signOutAccount().catch(() => undefined)
@@ -372,7 +402,9 @@ export default function App() {
                 current={current}
                 next={next}
                 disabled={busySwipe}
+                shaking={shaking}
                 onDecision={handleDecision}
+                onShake={deck.length > 1 ? handleShake : undefined}
               />
               <p className="deck-status">
                 {deck.length} left in this list

@@ -344,12 +344,94 @@ a {
   border-color: var(--amber);
 }
 
+.deck-top-bar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+
+.shake-btn {
+  border: 1px solid rgba(232, 168, 56, 0.35);
+  background: rgba(232, 168, 56, 0.1);
+  color: var(--amber);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background 0.15s, transform 0.12s, opacity 0.15s;
+}
+
+.shake-btn:hover:not(:disabled) {
+  background: rgba(232, 168, 56, 0.2);
+}
+
+.shake-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.shake-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .card-stage {
   position: relative;
   flex: 1;
   min-height: 420px;
   max-height: 62vh;
   touch-action: none;
+}
+
+.card-stage.shaking {
+  animation: deckShake 0.52s ease-in-out;
+}
+
+.card-stage.shaking .media-card {
+  animation: cardShuffle 0.52s ease-in-out;
+}
+
+.card-stage.shaking .media-card.next {
+  animation-delay: 0.04s;
+}
+
+@keyframes deckShake {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  15% {
+    transform: translateX(-10px) rotate(-1.5deg);
+  }
+  30% {
+    transform: translateX(10px) rotate(1.5deg);
+  }
+  45% {
+    transform: translateX(-8px) rotate(-1deg);
+  }
+  60% {
+    transform: translateX(8px) rotate(1deg);
+  }
+  75% {
+    transform: translateX(-4px) rotate(-0.5deg);
+  }
+  90% {
+    transform: translateX(4px) rotate(0.5deg);
+  }
+}
+
+@keyframes cardShuffle {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-14px) scale(0.97) rotate(-2deg);
+  }
+  70% {
+    transform: translateY(6px) scale(1.02) rotate(2deg);
+  }
 }
 
 .media-card {

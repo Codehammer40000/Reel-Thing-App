@@ -1,4 +1,4 @@
-import { useRef, useState, type HTMLAttributes } from 'react'
+import { useEffect, useRef, useState, type HTMLAttributes } from 'react'
 import { useDrag } from '@use-gesture/react'
 import type { SwipeDecision, Title } from '../types'
 import { MediaCard } from './MediaCard'
@@ -7,18 +7,33 @@ type Props = {
   current: Title
   next?: Title
   disabled?: boolean
+  shaking?: boolean
   onDecision: (decision: SwipeDecision) => void
+  onShake?: () => void
 }
 
 const THRESHOLD = 120
 
-export function SwipeDeck({ current, next, disabled, onDecision }: Props) {
+export function SwipeDeck({
+  current,
+  next,
+  disabled,
+  shaking,
+  onDecision,
+  onShake,
+}: Props) {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [flying, setFlying] = useState<null | { x: number; y: number; rot: number }>(null)
   const locking = useRef(false)
 
+  useEffect(() => {
+    if (!shaking) return
+    setOffset({ x: 0, y: 0 })
+    setFlying(null)
+  }, [shaking])
+
   const commit = (decision: SwipeDecision) => {
-    if (locking.current || disabled) return
+    if (locking.current || disabled || shaking) return
     locking.current = true
     const dir = decision === 'nope' ? -1 : 1
     setFlying({ x: dir * (window.innerWidth + 80), y: 40, rot: dir * 28 })
@@ -32,7 +47,7 @@ export function SwipeDeck({ current, next, disabled, onDecision }: Props) {
 
   const bind = useDrag(
     ({ down, movement: [mx, my], last }) => {
-      if (disabled || locking.current || flying) return
+      if (disabled || locking.current || flying || shaking) return
       if (down) {
         setOffset({ x: mx, y: my * 0.35 })
         return
@@ -60,18 +75,33 @@ export function SwipeDeck({ current, next, disabled, onDecision }: Props) {
 
   return (
     <>
-      <div className="card-stage">
+      <div className="deck-top-bar">
+        <button
+          type="button"
+          className="shake-btn"
+          disabled={disabled || shaking || !onShake}
+          onClick={onShake}
+        >
+          Shake It Up!
+        </button>
+      </div>
+
+      <div className={`card-stage ${shaking ? 'shaking' : ''}`}>
         {next ? <MediaCard key={next.id} title={next} className="next" /> : null}
         <MediaCard
           key={current.id}
           title={current}
           className="current"
-          yupOpacity={yupOpacity}
-          nopeOpacity={nopeOpacity}
-          style={{
-            transform: `translate3d(${x}px, ${y}px, 0) rotate(${rot}deg)`,
-            transition: flying || (!x && !y) ? 'transform 0.28s ease' : undefined,
-          }}
+          yupOpacity={shaking ? 0 : yupOpacity}
+          nopeOpacity={shaking ? 0 : nopeOpacity}
+          style={
+            shaking
+              ? undefined
+              : {
+                  transform: `translate3d(${x}px, ${y}px, 0) rotate(${rot}deg)`,
+                  transition: flying || (!x && !y) ? 'transform 0.28s ease' : undefined,
+                }
+          }
           dragHandlers={bind() as HTMLAttributes<HTMLDivElement>}
         />
       </div>
@@ -80,7 +110,7 @@ export function SwipeDeck({ current, next, disabled, onDecision }: Props) {
         <button
           type="button"
           className="action-btn nope"
-          disabled={disabled}
+          disabled={disabled || shaking}
           onClick={() => commit('nope')}
         >
           Nope
@@ -88,7 +118,7 @@ export function SwipeDeck({ current, next, disabled, onDecision }: Props) {
         <button
           type="button"
           className="action-btn yup"
-          disabled={disabled}
+          disabled={disabled || shaking}
           onClick={() => commit('yup')}
         >
           Yup
@@ -96,7 +126,7 @@ export function SwipeDeck({ current, next, disabled, onDecision }: Props) {
         <button
           type="button"
           className="gotta-btn"
-          disabled={disabled}
+          disabled={disabled || shaking}
           onClick={() => commit('gottaSeeIt')}
         >
           You Gotta See It
