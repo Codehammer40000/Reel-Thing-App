@@ -430,8 +430,7 @@ export default function App() {
       {displayName && screen !== 'welcome' ? (
         <button
           type="button"
-          className="ghost-btn"
-          style={{ alignSelf: 'center', marginTop: 8 }}
+          className="ghost-btn account-switch"
           onClick={resetLocal}
         >
           Switch account

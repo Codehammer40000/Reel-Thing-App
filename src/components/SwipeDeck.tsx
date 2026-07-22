@@ -46,8 +46,9 @@ export function SwipeDeck({
   }
 
   const bind = useDrag(
-    ({ down, movement: [mx, my], last }) => {
+    ({ down, movement: [mx, my], last, event }) => {
       if (disabled || locking.current || flying || shaking) return
+      if (event?.cancelable) event.preventDefault()
       if (down) {
         setOffset({ x: mx, y: my * 0.35 })
         return
@@ -64,7 +65,13 @@ export function SwipeDeck({
         setOffset({ x: 0, y: 0 })
       }
     },
-    { filterTaps: true, axis: 'x' },
+    {
+      filterTaps: true,
+      axis: 'x',
+      preventScroll: true,
+      preventDefault: true,
+      eventOptions: { passive: false },
+    },
   )
 
   const x = flying?.x ?? offset.x
