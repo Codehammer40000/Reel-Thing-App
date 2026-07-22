@@ -6,48 +6,81 @@ import { MediaCard } from './MediaCard'
 type Props = {
   current: Title
   next?: Title
-  disabled?: boolean
   shaking?: boolean
   onDecision: (decision: SwipeDecision) => void
   onShake?: () => void
 }
 
 const THRESHOLD = 120
+const FLY_MS = 280
 
 export function SwipeDeck({
   current,
   next,
-  disabled,
   shaking,
   onDecision,
   onShake,
 }: Props) {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
-  const [flying, setFlying] = useState<null | { x: number; y: number; rot: number }>(null)
+  const [flying, setFlying] = useState<null | { x: number; y: number; rot: number }>(
+    null,
+  )
   const locking = useRef(false)
+  const flyTimer = useRef<number | null>(null)
+  const flyingRef = useRef(false)
+
+  const clearFlyTimer = () => {
+    if (flyTimer.current != null) {
+      window.clearTimeout(flyTimer.current)
+      flyTimer.current = null
+    }
+  }
+
+  const unlock = () => {
+    locking.current = false
+    flyingRef.current = false
+    setFlying(null)
+    setOffset({ x: 0, y: 0 })
+  }
+
+  // New top card → always clear any stuck gesture/animation state
+  useEffect(() => {
+    clearFlyTimer()
+    unlock()
+  }, [current.id])
 
   useEffect(() => {
     if (!shaking) return
-    setOffset({ x: 0, y: 0 })
-    setFlying(null)
+    clearFlyTimer()
+    unlock()
   }, [shaking])
 
+  useEffect(() => {
+    return () => clearFlyTimer()
+  }, [])
+
   const commit = (decision: SwipeDecision) => {
-    if (locking.current || disabled || shaking) return
+    if (locking.current || shaking || flyingRef.current) return
     locking.current = true
+    flyingRef.current = true
     const dir = decision === 'nope' ? -1 : 1
     setFlying({ x: dir * (window.innerWidth + 80), y: 40, rot: dir * 28 })
-    window.setTimeout(() => {
-      onDecision(decision)
-      setOffset({ x: 0, y: 0 })
-      setFlying(null)
-      locking.current = false
-    }, 280)
+
+    clearFlyTimer()
+    flyTimer.current = window.setTimeout(() => {
+      flyTimer.current = null
+      try {
+        onDecision(decision)
+      } finally {
+        // Unlock even if parent handler throws
+        unlock()
+      }
+    }, FLY_MS)
   }
 
   const bind = useDrag(
     ({ down, movement: [mx, my], last, event }) => {
-      if (disabled || locking.current || flying || shaking) return
+      if (locking.current || flyingRef.current || shaking) return
       if (event?.cancelable) event.preventDefault()
       if (down) {
         setOffset({ x: mx, y: my * 0.35 })
@@ -79,6 +112,7 @@ export function SwipeDeck({
   const rot = flying?.rot ?? x * 0.05
   const yupOpacity = Math.min(1, Math.max(0, x / THRESHOLD))
   const nopeOpacity = Math.min(1, Math.max(0, -x / THRESHOLD))
+  const controlsLocked = shaking || Boolean(flying)
 
   return (
     <>
@@ -86,7 +120,7 @@ export function SwipeDeck({
         <button
           type="button"
           className="shake-btn"
-          disabled={disabled || shaking || !onShake}
+          disabled={shaking || !onShake || controlsLocked}
           onClick={onShake}
         >
           Shake It Up!
@@ -117,7 +151,7 @@ export function SwipeDeck({
         <button
           type="button"
           className="action-btn nope"
-          disabled={disabled || shaking}
+          disabled={shaking || controlsLocked}
           onClick={() => commit('nope')}
         >
           Nope
@@ -125,7 +159,7 @@ export function SwipeDeck({
         <button
           type="button"
           className="action-btn yup"
-          disabled={disabled || shaking}
+          disabled={shaking || controlsLocked}
           onClick={() => commit('yup')}
         >
           Yup
@@ -133,7 +167,7 @@ export function SwipeDeck({
         <button
           type="button"
           className="gotta-btn"
-          disabled={disabled || shaking}
+          disabled={shaking || controlsLocked}
           onClick={() => commit('gottaSeeIt')}
         >
           You Gotta See It

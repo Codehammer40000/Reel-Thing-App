@@ -52,7 +52,7 @@ export default function App() {
   const [unreadMatchIds, setUnreadMatchIds] = useState<Set<string>>(new Set())
   const matchesHydrated = useRef(false)
   const selfMatchedIds = useRef(new Set<string>())
-  const [busySwipe, setBusySwipe] = useState(false)
+  const shakeTimer = useRef<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [deckOrder, setDeckOrder] = useState<string[]>([])
   const [shaking, setShaking] = useState(false)
@@ -151,6 +151,7 @@ export default function App() {
     matchesHydrated.current = false
     return watchMatches(coupleId, (incoming) => {
       setMatches(incoming)
+
       setKnownMatchIds((prev) => {
         const next = new Set(prev)
         const brandNew: MatchRecord[] = []
@@ -168,28 +169,30 @@ export default function App() {
         }
 
         if (brandNew.length > 0) {
-          const partnerNew = brandNew.filter(
-            (m) => !selfMatchedIds.current.has(m.titleId),
-          )
-          if (partnerNew.length > 0) {
-            setUnreadMatchIds((prevUnread) => {
-              const unread = new Set(prevUnread)
-              for (const m of partnerNew) unread.add(m.titleId)
-              saveUnreadMatchIds(displayName, coupleId, unread)
-              return unread
-            })
-          }
-
-          for (const m of brandNew) {
-            const title = titlesById.get(m.titleId)
-            if (
-              title &&
-              m.from &&
-              m.from.toLowerCase() !== displayName.toLowerCase()
-            ) {
-              setSplash({ title, match: m })
+          queueMicrotask(() => {
+            const partnerNew = brandNew.filter(
+              (m) => !selfMatchedIds.current.has(m.titleId),
+            )
+            if (partnerNew.length > 0) {
+              setUnreadMatchIds((prevUnread) => {
+                const unread = new Set(prevUnread)
+                for (const m of partnerNew) unread.add(m.titleId)
+                saveUnreadMatchIds(displayName, coupleId, unread)
+                return unread
+              })
             }
-          }
+
+            for (const m of brandNew) {
+              const title = titlesById.get(m.titleId)
+              if (
+                title &&
+                m.from &&
+                m.from.toLowerCase() !== displayName.toLowerCase()
+              ) {
+                setSplash({ title, match: m })
+              }
+            }
+          })
         }
 
         return next
@@ -199,9 +202,21 @@ export default function App() {
 
   useEffect(() => {
     if (!coupleId || !displayName) return
+    let cancelled = false
     getMySwipedIds(coupleId, displayName)
-      .then(setSwipedIds)
+      .then((ids) => {
+        if (cancelled) return
+        // Merge with any optimistic local swipes so a slow fetch can't rewind the deck
+        setSwipedIds((prev) => {
+          const merged = new Set(ids)
+          prev.forEach((id) => merged.add(id))
+          return merged
+        })
+      })
       .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
   }, [coupleId, displayName])
 
   const deck = useMemo(() => {
@@ -215,7 +230,9 @@ export default function App() {
   const handleShake = () => {
     if (shaking || !displayName || deck.length < 2) return
     setShaking(true)
-    window.setTimeout(() => {
+    if (shakeTimer.current != null) window.clearTimeout(shakeTimer.current)
+    shakeTimer.current = window.setTimeout(() => {
+      shakeTimer.current = null
       setDeckOrder((prev) => {
         const nextOrder = shakeRemainingOrder(prev, swipedIds)
         saveDeckOrder(displayName, nextOrder)
@@ -289,7 +306,6 @@ export default function App() {
 
     if (!coupleId || !displayName || !isFirebaseConfigured) return
 
-    setBusySwipe(true)
     setError(null)
     // Mark before the write so a realtime snapshot can't badge your own match
     if (decision === 'yup' || decision === 'gottaSeeIt') {
@@ -308,12 +324,15 @@ export default function App() {
         selfMatchedIds.current.delete(title.id)
       }
       setError(err instanceof Error ? err.message : 'Failed to save swipe.')
-    } finally {
-      setBusySwipe(false)
     }
   }
 
   const resetLocal = () => {
+    if (shakeTimer.current != null) {
+      window.clearTimeout(shakeTimer.current)
+      shakeTimer.current = null
+    }
+    setShaking(false)
     if (displayName && coupleId) clearUnreadMatchIds(displayName, coupleId)
     clearSession()
     setDisplayName(null)
@@ -430,7 +449,6 @@ export default function App() {
               <SwipeDeck
                 current={current}
                 next={next}
-                disabled={busySwipe}
                 shaking={shaking}
                 onDecision={handleDecision}
                 onShake={deck.length > 1 ? handleShake : undefined}
