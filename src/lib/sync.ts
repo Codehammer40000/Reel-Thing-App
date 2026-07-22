@@ -106,11 +106,7 @@ export async function registerAccount(
   const key = name.toLowerCase()
   const ref = doc(db, 'users', key)
 
-  const existing = await getDoc(ref)
-  if (existing.exists()) {
-    throw new Error('That display name is already taken. Try Sign in instead.')
-  }
-
+  // Auth first — Firestore user reads require being signed in
   let uid: string
   try {
     const cred = await createUserWithEmailAndPassword(auth, authEmailFor(name), password)
@@ -120,17 +116,30 @@ export async function registerAccount(
   }
 
   try {
+    const existing = await getDoc(ref)
+    if (existing.exists()) {
+      const data = existing.data() as UserProfile
+      if (data.uid !== uid) {
+        await auth.currentUser?.delete().catch(() => undefined)
+        await signOut(auth).catch(() => undefined)
+        throw new Error('That display name is already taken. Try Sign in instead.')
+      }
+      return data
+    }
+
     await setDoc(ref, {
       displayName: name,
       uid,
       createdAt: Date.now(),
     } satisfies UserProfile)
   } catch (err) {
+    if (err instanceof Error && err.message.includes('already taken')) throw err
     try {
       await auth.currentUser?.delete()
     } catch {
       /* ignore */
     }
+    await signOut(auth).catch(() => undefined)
     throw err instanceof Error ? err : new Error('Could not create profile.')
   }
 
