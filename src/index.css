@@ -207,6 +207,31 @@ a {
   gap: 12px;
 }
 
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: rgba(30, 26, 23, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 6px;
+}
+
+.auth-tab {
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  border-radius: 10px;
+  padding: 12px 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.auth-tab.active {
+  background: rgba(232, 168, 56, 0.18);
+  color: var(--amber);
+}
+
 .field-label {
   font-size: 0.8rem;
   font-weight: 600;

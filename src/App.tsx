@@ -14,9 +14,11 @@ import {
   saveUnreadMatchIds,
 } from './lib/session'
 import {
-  ensureAnonymousAuth,
   getMySwipedIds,
+  getUserByName,
   recordSwipe,
+  signOutAccount,
+  watchAuth,
   watchMatches,
   watchUser,
 } from './lib/sync'
@@ -71,18 +73,42 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    const session = loadSession()
-    if (!session?.displayName) return
-    setDisplayName(session.displayName)
-    setPartnerName(session.partnerName ?? null)
-    setCoupleId(session.coupleId ?? null)
-    setScreen(session.coupleId ? 'deck' : 'link')
-    if (session.coupleId) {
-      setUnreadMatchIds(loadUnreadMatchIds(session.displayName, session.coupleId))
-    }
-    if (isFirebaseConfigured) {
-      ensureAnonymousAuth().catch(() => undefined)
-    }
+    if (!isFirebaseConfigured) return
+
+    return watchAuth((uid) => {
+      const session = loadSession()
+      if (!uid) {
+        // Signed out — keep welcome unless we still have a local session to clear
+        if (!session?.displayName) {
+          setScreen('welcome')
+        }
+        return
+      }
+
+      if (!session?.displayName) return
+
+      getUserByName(session.displayName)
+        .then((profile) => {
+          if (!profile || profile.uid !== uid) {
+            clearSession()
+            setDisplayName(null)
+            setPartnerName(null)
+            setCoupleId(null)
+            setScreen('welcome')
+            return
+          }
+          setDisplayName(profile.displayName)
+          setPartnerName(profile.partnerName ?? null)
+          setCoupleId(profile.coupleId ?? null)
+          if (profile.coupleId) {
+            setUnreadMatchIds(loadUnreadMatchIds(profile.displayName, profile.coupleId))
+            setScreen('deck')
+          } else {
+            setScreen('link')
+          }
+        })
+        .catch(() => undefined)
+    })
   }, [])
 
   useEffect(() => {
@@ -176,10 +202,24 @@ export default function App() {
     }
   }
 
-  const handleClaimed = (name: string) => {
+  const handleAuthed = (
+    name: string,
+    profile: { partnerName?: string; coupleId?: string },
+  ) => {
     setDisplayName(name)
-    saveSession({ displayName: name })
-    setScreen('link')
+    setPartnerName(profile.partnerName ?? null)
+    setCoupleId(profile.coupleId ?? null)
+    saveSession({
+      displayName: name,
+      partnerName: profile.partnerName,
+      coupleId: profile.coupleId,
+    })
+    if (profile.coupleId) {
+      setUnreadMatchIds(loadUnreadMatchIds(name, profile.coupleId))
+      setScreen('deck')
+    } else {
+      setScreen('link')
+    }
   }
 
   const handleLinked = (partner: string, id: string) => {
@@ -235,6 +275,7 @@ export default function App() {
     setUnreadMatchIds(new Set())
     selfMatchedIds.current = new Set()
     setScreen('welcome')
+    signOutAccount().catch(() => undefined)
   }
 
   return (
@@ -284,7 +325,7 @@ export default function App() {
 
       {error ? <p className="error-text">{error}</p> : null}
 
-      {screen === 'welcome' ? <WelcomeScreen onClaimed={handleClaimed} /> : null}
+      {screen === 'welcome' ? <WelcomeScreen onAuthed={handleAuthed} /> : null}
 
       {screen === 'link' && displayName ? (
         <LinkPartnerScreen

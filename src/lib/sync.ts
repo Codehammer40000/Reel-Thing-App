@@ -9,11 +9,18 @@ import {
   setDoc,
   type Unsubscribe,
 } from 'firebase/firestore'
-import { onAuthStateChanged, signInAnonymously } from 'firebase/auth'
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  type AuthError,
+} from 'firebase/auth'
 import { auth, db, isFirebaseConfigured } from './firebase'
 import type { MatchRecord, SwipeDecision, SwipeRecord, UserProfile } from '../types'
 
 const NAME_RE = /^[A-Za-z0-9]{3,20}$/
+const AUTH_EMAIL_DOMAIN = 'users.reelthing.app'
 
 export function normalizeDisplayName(raw: string): string {
   return raw.trim()
@@ -27,17 +34,46 @@ export function validateDisplayName(raw: string): string | null {
   return null
 }
 
+export function validatePassword(password: string): string | null {
+  if (password.length < 6) {
+    return 'Password must be at least 6 characters.'
+  }
+  return null
+}
+
 export function coupleIdFor(nameA: string, nameB: string): string {
   return [nameA.toLowerCase(), nameB.toLowerCase()].sort().join('_')
 }
 
-export async function ensureAnonymousAuth(): Promise<string> {
-  if (!isFirebaseConfigured || !auth) {
-    throw new Error('Firebase is not configured. Add your keys to .env')
+function authEmailFor(displayName: string): string {
+  return `${normalizeDisplayName(displayName).toLowerCase()}@${AUTH_EMAIL_DOMAIN}`
+}
+
+function mapAuthError(err: unknown): string {
+  const code = (err as AuthError)?.code
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return 'That display name is already taken. Try Sign in instead.'
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Display name or password is incorrect.'
+    case 'auth/weak-password':
+      return 'Password must be at least 6 characters.'
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Wait a moment and try again.'
+    case 'auth/operation-not-allowed':
+      return 'Email/Password sign-in is not enabled in Firebase yet.'
+    default:
+      return err instanceof Error ? err.message : 'Authentication failed.'
   }
-  if (auth.currentUser) return auth.currentUser.uid
-  const cred = await signInAnonymously(auth)
-  return cred.user.uid
+}
+
+export function requireAuthUid(): string {
+  if (!auth?.currentUser) {
+    throw new Error('You are signed out. Sign in again.')
+  }
+  return auth.currentUser.uid
 }
 
 export function watchAuth(cb: (uid: string | null) => void): Unsubscribe {
@@ -48,34 +84,91 @@ export function watchAuth(cb: (uid: string | null) => void): Unsubscribe {
   return onAuthStateChanged(auth, (user) => cb(user?.uid ?? null))
 }
 
-export async function claimDisplayName(displayName: string): Promise<UserProfile> {
-  if (!db || !auth) throw new Error('Firebase is not configured')
-  const error = validateDisplayName(displayName)
-  if (error) throw new Error(error)
+export async function signOutAccount(): Promise<void> {
+  if (!auth) return
+  await signOut(auth)
+}
 
-  const uid = await ensureAnonymousAuth()
+/** Create a new account (name + password) usable on any device. */
+export async function registerAccount(
+  displayName: string,
+  password: string,
+): Promise<UserProfile> {
+  if (!db || !auth) throw new Error('Firebase is not configured')
+  if (!isFirebaseConfigured) throw new Error('Firebase is not configured')
+
+  const nameError = validateDisplayName(displayName)
+  if (nameError) throw new Error(nameError)
+  const passError = validatePassword(password)
+  if (passError) throw new Error(passError)
+
   const name = normalizeDisplayName(displayName)
   const key = name.toLowerCase()
   const ref = doc(db, 'users', key)
 
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref)
-    if (snap.exists()) {
-      const data = snap.data() as UserProfile
-      if (data.uid !== uid) {
-        throw new Error('That display name is already taken.')
-      }
-      return
-    }
-    tx.set(ref, {
+  const existing = await getDoc(ref)
+  if (existing.exists()) {
+    throw new Error('That display name is already taken. Try Sign in instead.')
+  }
+
+  let uid: string
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, authEmailFor(name), password)
+    uid = cred.user.uid
+  } catch (err) {
+    throw new Error(mapAuthError(err))
+  }
+
+  try {
+    await setDoc(ref, {
       displayName: name,
       uid,
       createdAt: Date.now(),
     } satisfies UserProfile)
-  })
+  } catch (err) {
+    try {
+      await auth.currentUser?.delete()
+    } catch {
+      /* ignore */
+    }
+    throw err instanceof Error ? err : new Error('Could not create profile.')
+  }
 
   const snap = await getDoc(ref)
   return snap.data() as UserProfile
+}
+
+/** Sign in to an existing account from any device. */
+export async function signInAccount(
+  displayName: string,
+  password: string,
+): Promise<UserProfile> {
+  if (!db || !auth) throw new Error('Firebase is not configured')
+  if (!isFirebaseConfigured) throw new Error('Firebase is not configured')
+
+  const nameError = validateDisplayName(displayName)
+  if (nameError) throw new Error(nameError)
+  const passError = validatePassword(password)
+  if (passError) throw new Error(passError)
+
+  const name = normalizeDisplayName(displayName)
+
+  try {
+    await signInWithEmailAndPassword(auth, authEmailFor(name), password)
+  } catch (err) {
+    throw new Error(mapAuthError(err))
+  }
+
+  const profile = await getUserByName(name)
+  if (!profile) {
+    await signOut(auth)
+    throw new Error('Account exists in Auth but no profile was found. Try creating again.')
+  }
+  if (profile.uid !== auth.currentUser?.uid) {
+    await signOut(auth)
+    throw new Error('This account is out of sync. Recreate it or pick a new name.')
+  }
+  return profile
 }
 
 export async function getUserByName(displayName: string): Promise<UserProfile | null> {
@@ -99,14 +192,14 @@ export async function linkPartner(
 
   const partner = await getUserByName(them)
   if (!partner) {
-    throw new Error(`No user found named "${them}". Ask them to claim that name first.`)
+    throw new Error(`No user found named "${them}". Ask them to create that name first.`)
   }
 
-  const uid = await ensureAnonymousAuth()
+  const uid = requireAuthUid()
   const myRef = doc(db, 'users', me.toLowerCase())
   const mySnap = await getDoc(myRef)
   if (!mySnap.exists() || (mySnap.data() as UserProfile).uid !== uid) {
-    throw new Error('Your session does not match this display name. Reclaim your name.')
+    throw new Error('Your session does not match this display name. Sign in again.')
   }
 
   const coupleId = coupleIdFor(me, them)
@@ -152,6 +245,7 @@ export async function recordSwipe(
   decision: SwipeDecision,
 ): Promise<{ matched: boolean; match?: MatchRecord }> {
   if (!db) throw new Error('Firebase is not configured')
+  requireAuthUid()
 
   const swipeId = `${titleId}_${userName.toLowerCase()}`
   const swipeRef = doc(db, 'couples', coupleId, 'swipes', swipeId)
@@ -182,7 +276,6 @@ export async function recordSwipe(
     return { matched: true, match }
   }
 
-  // yup — check partner
   const coupleSnap = await getDoc(coupleRef)
   if (!coupleSnap.exists()) return { matched: false }
   const members = (coupleSnap.data().members as string[]) ?? []
