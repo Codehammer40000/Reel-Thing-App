@@ -5,6 +5,8 @@ export type ListTag =
   | 'top250Tv'
   | 'popularMovies'
   | 'popularTv'
+  | 'anime'
+  | 'romComs'
 
 export type Title = {
   id: string
@@ -22,12 +24,7 @@ export type Title = {
 
 export type SwipeDecision = 'yup' | 'nope' | 'gottaSeeIt'
 
-export type FilterId =
-  | 'all'
-  | 'movies'
-  | 'tv'
-  | 'top250'
-  | 'popular'
+export type FilterId = 'all' | 'new' | 'movies' | 'tv' | 'anime' | 'romComs'
 
 export type UserProfile = {
   displayName: string

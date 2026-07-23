@@ -337,14 +337,38 @@ a {
   overflow: hidden;
 }
 
+.filters-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-inline: -14px;
+  /* Soft edge fades — short, not a long center gradient */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 18px,
+    #000 calc(100% - 18px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 18px,
+    #000 calc(100% - 18px),
+    transparent 100%
+  );
+}
+
 .filters {
   display: flex;
-  gap: 8px;
+  gap: 2px;
   overflow-x: auto;
-  padding-bottom: 2px;
+  overflow-y: hidden;
+  padding: 2px 18px 4px;
   scrollbar-width: none;
-  flex-shrink: 0;
   touch-action: pan-x;
+  border: none;
+  background: transparent;
+  -webkit-overflow-scrolling: touch;
 }
 
 .filters::-webkit-scrollbar {
@@ -353,19 +377,28 @@ a {
 
 .filter-chip {
   flex: 0 0 auto;
-  border: 1px solid var(--line);
+  border: none;
   background: transparent;
   color: var(--ink-muted);
-  border-radius: 999px;
-  padding: 8px 14px;
+  border-radius: 0;
+  padding: 6px 12px;
   font-size: 0.82rem;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.72;
+  transition: color 0.15s, opacity 0.15s;
+}
+
+.filter-chip:hover {
+  color: var(--ink);
+  opacity: 1;
 }
 
 .filter-chip.active {
-  color: #1a1208;
-  background: var(--amber);
-  border-color: var(--amber);
+  color: var(--amber);
+  opacity: 1;
+  background: transparent;
+  border: none;
 }
 
 .deck-top-bar {
@@ -824,34 +857,32 @@ a {
   font-size: 0.9rem;
 }
 
-.partner-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(232, 168, 56, 0.12);
-  border: 1px solid rgba(232, 168, 56, 0.3);
+.partner-name-btn {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
   color: var(--amber);
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.partner-pill-btn {
-  cursor: pointer;
   font: inherit;
-  vertical-align: middle;
-  transition: background 0.15s, border-color 0.15s;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  vertical-align: baseline;
+  text-decoration: none;
 }
 
-.partner-pill-btn:hover {
-  background: rgba(232, 168, 56, 0.22);
-  border-color: rgba(232, 168, 56, 0.55);
+.partner-name-btn:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .sync-line {
   margin-top: 0;
+  margin-bottom: 2px;
   flex-shrink: 0;
+  line-height: 1.2;
+  font-size: 0.78rem;
 }
 
 .change-partner-card {
@@ -891,7 +922,7 @@ a {
   }
 
   .filter-chip {
-    padding: 6px 12px;
+    padding: 6px 10px;
     font-size: 0.76rem;
   }
 

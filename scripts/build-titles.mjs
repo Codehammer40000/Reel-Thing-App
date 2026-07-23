@@ -10,6 +10,8 @@ const LIST_MAP = {
   'IMDb_Top_250_TV_Shows.csv': 'top250Tv',
   'IMDb_Top_100_Most_Popular_Movies.csv': 'popularMovies',
   'IMDb_Top_100_Most_Popular_TV_Shows.csv': 'popularTv',
+  'IMDb_Top_Rated_Anime.csv': 'anime',
+  'IMDb_Romantic_Comedies.csv': 'romComs',
 }
 
 function enlargePoster(url) {

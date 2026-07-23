@@ -392,7 +392,7 @@ export default function App() {
           Synced with{' '}
           <button
             type="button"
-            className="partner-pill partner-pill-btn"
+            className="partner-name-btn"
             onClick={() => setShowChangePartner(true)}
             title="Change partner"
           >
@@ -415,17 +415,21 @@ export default function App() {
 
       {screen === 'deck' ? (
         <section className="screen deck-screen">
-          <div className="filters">
-            {FILTER_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                className={`filter-chip ${filter === opt.id ? 'active' : ''}`}
-                onClick={() => setFilter(opt.id)}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div className="filters-wrap">
+            <div className="filters" role="tablist" aria-label="Categories">
+              {FILTER_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === opt.id}
+                  className={`filter-chip ${filter === opt.id ? 'active' : ''}`}
+                  onClick={() => setFilter(opt.id)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {loadingTitles ? (
