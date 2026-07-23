@@ -39,6 +39,8 @@ export type MatchRecord = {
   reason: 'mutual' | 'gottaSeeIt'
   from?: string
   at: number
+  watched?: boolean
+  watchedAt?: number
 }
 
 export type SwipeRecord = {

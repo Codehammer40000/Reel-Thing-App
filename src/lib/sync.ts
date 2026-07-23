@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -330,6 +331,34 @@ export function watchMatches(
     matches.sort((a, b) => b.at - a.at)
     cb(matches)
   })
+}
+
+export async function setMatchWatched(
+  coupleId: string,
+  titleId: string,
+  watched: boolean,
+): Promise<void> {
+  if (!db) throw new Error('Firebase is not configured')
+  requireAuthUid()
+  const matchRef = doc(db, 'couples', coupleId, 'matches', titleId)
+  const snap = await getDoc(matchRef)
+  if (!snap.exists()) {
+    throw new Error('Match not found.')
+  }
+  const existing = snap.data() as MatchRecord
+  await setDoc(
+    matchRef,
+    {
+      titleId: existing.titleId,
+      reason: existing.reason,
+      ...(existing.from ? { from: existing.from } : {}),
+      at: existing.at,
+      watched,
+      watchedAt: watched ? Date.now() : deleteField(),
+      serverAt: serverTimestamp(),
+    },
+    { merge: true },
+  )
 }
 
 export function watchUser(

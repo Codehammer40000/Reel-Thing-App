@@ -698,6 +698,34 @@ a {
 }
 
 /* Matches */
+.matches-screen {
+  gap: 8px;
+}
+
+.match-tabs {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 0 4px;
+}
+
+.match-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  padding: 8px 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0.75;
+}
+
+.match-tab.active {
+  color: var(--amber);
+  opacity: 1;
+}
+
 .matches-list {
   display: flex;
   flex-direction: column;
@@ -707,21 +735,28 @@ a {
 
 .match-row {
   display: grid;
-  grid-template-columns: 72px 1fr auto;
-  gap: 12px;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
   align-items: center;
   background: rgba(30, 26, 23, 0.85);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 10px;
-  text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s, background 0.15s;
 }
 
-.match-row:hover {
-  border-color: rgba(232, 168, 56, 0.4);
-  background: rgba(40, 34, 28, 0.95);
+.match-row-main {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 12px;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+}
+
+.match-row-main:hover h3 {
+  color: var(--amber);
 }
 
 .match-row img {
@@ -741,6 +776,30 @@ a {
   margin: 0;
   color: var(--ink-muted);
   font-size: 0.82rem;
+}
+
+.watched-btn {
+  border: 1px solid rgba(232, 168, 56, 0.45);
+  background: transparent;
+  color: var(--amber);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.watched-btn.filled {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #1a1208;
+}
+
+.watched-btn:hover {
+  filter: brightness(1.05);
 }
 
 .match-badge {

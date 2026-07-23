@@ -20,6 +20,7 @@ import {
   getMySwipedIds,
   getUserByName,
   recordSwipe,
+  setMatchWatched,
   signOutAccount,
   watchAuth,
   watchMatches,
@@ -250,6 +251,23 @@ export default function App() {
     }
   }
 
+  const handleToggleWatched = async (titleId: string, watched: boolean) => {
+    if (!coupleId) return
+    // Optimistic UI
+    setMatches((prev) =>
+      prev.map((m) =>
+        m.titleId === titleId
+          ? { ...m, watched, watchedAt: watched ? Date.now() : undefined }
+          : m,
+      ),
+    )
+    try {
+      await setMatchWatched(coupleId, titleId, watched)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update watched.')
+    }
+  }
+
   const handleAuthed = (
     name: string,
     profile: { partnerName?: string; coupleId?: string },
@@ -467,7 +485,11 @@ export default function App() {
       ) : null}
 
       {screen === 'matches' ? (
-        <MatchesScreen matches={matches} titlesById={titlesById} />
+        <MatchesScreen
+          matches={matches}
+          titlesById={titlesById}
+          onToggleWatched={handleToggleWatched}
+        />
       ) : null}
 
       {splash ? (
